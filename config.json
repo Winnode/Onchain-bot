@@ -1,0 +1,14 @@
+{
+    "interval": 10,
+    "sleep": 1800,
+    "min_energy": 5,
+    "click_range": {
+        "start": 1,
+        "end": 10
+    },
+    "phone_numbers": [
+        "+62812459xxxx",
+        "+62857622xxxx",
+        "+62821168xxxx"
+    ]
+}
