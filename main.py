@@ -118,13 +118,23 @@ class OnchainBot:
         if res.status_code != 200:
             if "Invalid token" in res.text:
                 return "need_reauth"
-
-        name = res.json()["user"]["fullName"]
-        energy = res.json()["user"]["energy"]
-        max_energy = res.json()["user"]["maxEnergy"]
-        league = res.json()["user"]["league"]
-        clicks = res.json()["user"]["clicks"]
-        coins = res.json()["user"]["coins"]
+    
+        # Log the response content
+        self.log(f"Response status code: {res.status_code}")
+        self.log(f"Response content: {res.text}")
+    
+        try:
+            data = res.json()
+        except json.JSONDecodeError:
+            self.log(f"{merah}Failed to decode JSON response")
+            return
+    
+        name = data["user"]["fullName"]
+        energy = data["user"]["energy"]
+        max_energy = data["user"]["maxEnergy"]
+        league = data["user"]["league"]
+        clicks = data["user"]["clicks"]
+        coins = data["user"]["coins"]
         self.log(f"{hijau}full name : {putih}:{name}")
         self.log(f"{putih}total coins : {hijau}{coins}")
         self.log(f"{putih}total clicks : {hijau}{clicks}")
