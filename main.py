@@ -114,32 +114,42 @@ class OnchainBot:
             "te": "trailers",
             "content-length": "0",
         }
-        res = requests.get(_url, headers=_headers, timeout=100)
-        if res.status_code != 200:
-            if "Invalid token" in res.text:
-                return "need_reauth"
-    
-        # Log the response content
-        self.log(f"Response status code: {res.status_code}")
-        self.log(f"Response content: {res.text}")
-    
-        try:
-            data = res.json()
-        except json.JSONDecodeError:
-            self.log(f"{merah}Failed to decode JSON response")
-            return
-    
-        name = data["user"]["fullName"]
-        energy = data["user"]["energy"]
-        max_energy = data["user"]["maxEnergy"]
-        league = data["user"]["league"]
-        clicks = data["user"]["clicks"]
-        coins = data["user"]["coins"]
-        self.log(f"{hijau}full name : {putih}:{name}")
-        self.log(f"{putih}total coins : {hijau}{coins}")
-        self.log(f"{putih}total clicks : {hijau}{clicks}")
-        self.log(f"{putih}total energy : {hijau}{energy}")
-        print("~" * 50)
+        backoff = 1
+        while True:
+            res = requests.get(_url, headers=_headers, timeout=100)
+            if res.status_code == 429:
+                self.log(f"{merah}Too many requests. Backing off for {backoff} seconds...")
+                self.countdown(backoff)
+                backoff = min(backoff * 2, 3600)  # Exponential backoff, cap at 1 hour
+                continue
+            elif res.status_code != 200:
+                if "Invalid token" in res.text:
+                    return "need_reauth"
+                self.log(f"{merah}Failed to get info: {res.status_code} {res.text}")
+                return
+
+            # Log the response content
+            self.log(f"Response status code: {res.status_code}")
+            self.log(f"Response content: {res.text}")
+
+            try:
+                data = res.json()
+            except json.JSONDecodeError:
+                self.log(f"{merah}Failed to decode JSON response")
+                return
+
+            name = data["user"]["fullName"]
+            energy = data["user"]["energy"]
+            max_energy = data["user"]["maxEnergy"]
+            league = data["user"]["league"]
+            clicks = data["user"]["clicks"]
+            coins = data["user"]["coins"]
+            self.log(f"{hijau}full name : {putih}:{name}")
+            self.log(f"{putih}total coins : {hijau}{coins}")
+            self.log(f"{putih}total clicks : {hijau}{clicks}")
+            self.log(f"{putih}total energy : {hijau}{energy}")
+            print("~" * 50)
+            break  # Exit loop on successful response
 
     def on_login(self):
         _url = "https://db4.onchaincoin.io/api/validate"
@@ -157,17 +167,24 @@ class OnchainBot:
             "sec-fetch-site": "same-origin",
             "te": "trailers",
         }
-        res = requests.post(_url, json=_data, headers=_headers, timeout=100)
-        if res.status_code != 200:
-            print(res.text)
-            sys.exit()
+        backoff = 1
+        while True:
+            res = requests.post(_url, json=_data, headers=_headers, timeout=100)
+            if res.status_code == 429:
+                self.log(f"{merah}Too many requests. Backing off for {backoff} seconds...")
+                self.countdown(backoff)
+                backoff = min(backoff * 2, 3600)  # Exponential backoff, cap at 1 hour
+                continue
+            elif res.status_code != 200:
+                print(res.text)
+                sys.exit()
 
-        if res.json()["success"] is False:
-            print(res.text)
-            sys.exit()
+            if res.json()["success"] is False:
+                print(res.text)
+                sys.exit()
 
-        self.bearer = res.json()["token"]
-        return True
+            self.bearer = res.json()["token"]
+            return True
 
     def click(self):
         url = "https://db4.onchaincoin.io/api/klick/myself/click"
@@ -185,13 +202,19 @@ class OnchainBot:
             "sec-fetch-site": "same-origin",
             "te": "trailers",
         }
+        backoff = 1
         while True:
             try:
                 click = random.randint(self.click_range["start"], self.click_range["end"])
                 _data = {"clicks": click}
                 res = requests.post(url, json=_data, headers=_headers, timeout=100)
 
-                if res.status_code != 200:
+                if res.status_code == 429:
+                    self.log(f"{merah}Too many requests. Backing off for {backoff} seconds...")
+                    self.countdown(backoff)
+                    backoff = min(backoff * 2, 3600)  # Exponential backoff, cap at 1 hour
+                    continue
+                elif res.status_code != 200:
                     if "Invalid token" in res.text:
                         self.on_login()
                         continue
@@ -200,9 +223,16 @@ class OnchainBot:
                     self.countdown(self.sleep)
                     continue
 
-                clicks = res.json()["clicks"]
-                coins = res.json()["coins"]
-                energy = res.json()["energy"]
+                try:
+                    response_data = res.json()
+                    clicks = response_data["clicks"]
+                    coins = response_data["coins"]
+                    energy = response_data["energy"]
+                except json.JSONDecodeError:
+                    self.log(f"{merah}Failed to decode JSON response for click")
+                    self.countdown(self.sleep)
+                    continue
+
                 self.log(f"{hijau}click : {putih}{click}")
                 self.log(f"{hijau}total clicks : {putih}{clicks}")
                 self.log(f"{hijau}total coins : {putih}{coins}")
@@ -275,5 +305,3 @@ if __name__ == "__main__":
 
     except KeyboardInterrupt:
         sys.exit()
-
-           
